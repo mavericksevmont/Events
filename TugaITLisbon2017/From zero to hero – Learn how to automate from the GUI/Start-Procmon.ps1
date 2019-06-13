@@ -1,4 +1,6 @@
-﻿<#
+function Start-ProcMon {
+
+<#
 .SYNOPSIS
 	Start-ProcMon uses Powershell to call Process Monitor, a tool from the Sysinternals Suite.  
 	This script adds the functionality of dynamically specifying filters, which allows automation
@@ -6,16 +8,19 @@
 .DESCRIPTION
 	Written by Nick Atkins @Nik_41tkins
 	http://nomanualrequired.blogspot.com/
+	Edited by Erick Sevilla (mavericksevmont)
+    https://tech.mavericksevmont.com
+		-Removed PML and CSV cleanups
+		-Added Hostname in PML and CSV Report names
+		-Added ProcMon Registry creation if Key does not exist
 	This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 .PARAMATER Filter
@@ -182,6 +187,8 @@
 		 	{return ($FilterRegkey | sort | get-unique)}
 			
 		 #Set filter
+         $ProcMonReg = "HKCU:\Software\Sysinternals\Process Monitor" # ProcMon reg key path
+         if( -Not (Test-Path $ProcMonReg) ) { New-Item $ProcMonReg -ItemType Directory -ErrorAction Stop} # Added this as it didn't exist in some hosts
 		 New-ItemProperty "HKCU:\Software\Sysinternals\Process Monitor" "FilterRules" -Value $FilterRegKey `
 		   -PropertyType Binary -Force -ErrorVariable SetRegKeyErr | Out-Null
 		 if(($setRegKeyErr | measure).count -ne 0)
@@ -190,6 +197,7 @@
 	 }
 ##Main
 #Function used for cleaning up temp files
+<#
 function cleanup
 {
 	#CSV file only exists on the last step
@@ -207,6 +215,7 @@ function cleanup
 	else
 		{return 0}
 }
+#>
 #First check if process monitor is currently running.
 if((get-ProcmonRunningStatus) -eq "True")
 	{return "Error: Process Monitor already running."}
@@ -264,8 +273,8 @@ Set-Location $ProcMonFolder
 
 #Cheap way to get a pseudorandom tempfile name with benifit of timestamp
 $FileDate=((get-date).TimeOfDay.ToString().Replace('.','_')).replace(':','_')
-$TempPML = ".\Temp_$FileDate.pml"
-$TempCSV = ".\Temp_$FileDate.csv"
+$TempPML = "$PSScriptRoot\ProcMon_$env:COMPUTERNAME`_$FileDate.pml"
+$TempCSV = "$PSScriptRoot\ProcMon_$env:COMPUTERNAME`_$FileDate.csv"
 
 #Test for executable
 Write-Verbose "Testing for Procmon.exe."
@@ -315,3 +324,4 @@ if((cleanup) -ne 0)
 Pop-Location
 return $OutputObj
 
+}
